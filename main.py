@@ -11,23 +11,34 @@ DEFAULT_MODEL = "meta-llama/Llama-Vision-Free"
 DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_TOKENS = 512
 DEFAULT_TOKEN_BUDGET = 4096
+DEFAULT_TOP_P = 0.7
+DEFAULT_TOP_K = 50
+DEFAULT_RP = "Normal"
 
 class ConversationManager:
-    def __init__(self, api_key=None, base_url=None, model=None, temperature=None, max_tokens=None, token_budget=None):
+    def __init__(self, api_key=None, base_url=None, model=None, temperature=None, max_tokens=None, token_budget=None, top_p=None, top_k=None, rp_style=None):
         if not api_key:
             api_key = DEFAULT_API_KEY
         if not base_url:
             base_url = DEFAULT_BASE_URL
             
         self.client = OpenAI(api_key=api_key, base_url=base_url)
-
+        self.rp_style = rp_style if rp_style else DEFAULT_RP
+        self.rp_add = ""
+        self.top_p = top_p if top_p else DEFAULT_TOP_P
+        self.top_k = top_k if top_k else DEFAULT_TOP_K
         self.model = model if model else DEFAULT_MODEL
         self.temperature = temperature if temperature else DEFAULT_TEMPERATURE
         self.max_tokens = max_tokens if max_tokens else DEFAULT_MAX_TOKENS
         self.token_budget = token_budget if token_budget else DEFAULT_TOKEN_BUDGET
 
-        self.system_message = "You are a friendly and supportive guide. You answer questions with kindness, encouragement, and patience, always looking to help the user feel comfortable and confident."  # Default persona
+        self.update_system_message()
+
+    def update_system_message(self):
+        self.system_message = f"Kamu adalah seorang dokter profesional yang dapat mendiagnosa penyakit dengan gejala yang sesuai. Kamu akan memberikan diagnosa kepada pengguna mengenai gejala yang akan ia berikan, mengurutkan penyakit penyakit yang relevan sesuai dengan jumlah gejala yang sesuai. Kamu juga akan memberikan teks bold atau tebal kepada gejala yang sesuai tersebut. Gaya kamu dalam menjawab pasien adalah {self.rp_style}. {self.rp_add}"
         self.conversation_history = [{"role": "system", "content": self.system_message}]
+
+    
 
     def count_tokens(self, text):
         try:
@@ -53,9 +64,10 @@ class ConversationManager:
         except Exception as e:
             print(f"Error enforcing token budget: {e}")
 
-    def chat_completion(self, prompt, temperature=None, max_tokens=None, model=None):
+    def chat_completion(self, prompt, temperature=None, max_tokens=None, model=None, top_p=None):
         temperature = temperature if temperature is not None else self.temperature
         max_tokens = max_tokens if max_tokens is not None else self.max_tokens
+        top_p = top_p if top_p is not None else self.top_p
         model = model if model is not None else self.model
 
         self.conversation_history.append({"role": "user", "content": prompt})
@@ -67,6 +79,7 @@ class ConversationManager:
                 messages=self.conversation_history,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                top_p=0.7,
             )
         except Exception as e:
             print(f"Error generating response: {e}")
@@ -101,7 +114,7 @@ def get_instance_id():
         return "Instance ID not available (running locally or error in retrieval)"
 
 ### Streamlit code ###
-st.title("AI Chatbot")
+st.title("Ask Doctor")
 
 # Display EC2 Instance ID
 instance_id = get_instance_id()
@@ -130,3 +143,35 @@ for message in conversation_history:
     if message["role"] != "system":
         with st.chat_message(message["role"]):
             st.write(message["content"])
+
+
+sidebar_page = st.sidebar
+
+sidebar_title = sidebar_page.write("## Chat Customization")
+
+with sidebar_page.form("Chat Customization"):
+    temp_slider = st.slider("Temperature", min_value=0.0, max_value=1.0, value=chat_manager.temperature, step=0.1)
+    max_token_message = st.slider("Max Token Per Message", min_value= 0, max_value= 1500, value=chat_manager.max_tokens, step=1)
+    top_p = st.slider("Top P", min_value=0.0, max_value=1.0, value=chat_manager.top_p, step=0.1)
+    # top_k = st.slider("Top K", min_value=0, max_value=100, value=chat_manager.top_k, step=1)
+    rp_style = st.text_input("AI Persona", placeholder="Contoh : Galak, Lemah lembut, Normal")
+    rp_add = st.text_area("Additional Role Play", value=chat_manager.rp_add)
+    done = st.form_submit_button("Done")
+    if done:
+        chat_manager.rp_style = rp_style
+        chat_manager.temperature = temp_slider
+        chat_manager.max_tokens = max_token_message
+        chat_manager.top_p = top_p
+        chat_manager.rp_add = rp_add
+        
+        chat_manager.update_system_message()
+
+        st.session_state['chat_manager'] = chat_manager
+        st.session_state['conversation_history'] = chat_manager.conversation_history
+
+        st.success(f'''
+        Top P = {chat_manager.top_p}\n
+        Temperature = {chat_manager.temperature}\n
+        Max Tokens = {chat_manager.max_tokens}
+        ''')
+        

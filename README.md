@@ -45,3 +45,18 @@
   ```sh
   streamlit run main.py
   ```
+
+
+## Freezing Requirements
+
+1. **Freeze the current packages to a requirements file:**
+
+  ```sh
+  pip list --not-required --format=freeze > requirements.txt
+  ```
+
+2. **Verify the contents of the `requirements.txt` file:**
+
+  ```sh
+  cat requirements.txt
+  ```

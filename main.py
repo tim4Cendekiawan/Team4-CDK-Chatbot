@@ -187,8 +187,18 @@ with sidebar_page.form("Chat Customization"):
         "Top P", min_value=0.0, max_value=1.0, value=chat_manager.top_p, step=0.1
     )
     # top_k = st.slider("Top K", min_value=0, max_value=100, value=chat_manager.top_k, step=1)
-    rp_style = st.text_input(
-        "AI Persona", placeholder="Contoh : Galak, Lemah lembut, Normal"
+    rp_style = st.selectbox(
+        "AI Persona",
+        options=[
+            "Professional",
+            "Galak",
+            "Lemah lembut",
+            "Normal",
+            "Tegas",
+            "Humoris",
+            "Santai",
+        ],
+        index=0,
     )
     rp_add = st.text_area("Additional Role Play", value=chat_manager.rp_add)
     done = st.form_submit_button("Done")
